@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Label Printer App (50×32 mm + Left Margin)</title>
+    <style>
+      /* Overall smaller-ish UI fonts */
+      html,
+      body {
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        padding: 16px;
+      }
+
+      h1 {
+        margin-bottom: 8px;
+        font-size: 18px;
+      }
+      h2 {
+        margin: 16px 0 8px 0;
+        font-size: 16px;
+      }
+      .section {
+        margin-bottom: 20px;
+        border-bottom: 1px solid #ccc;
+        padding-bottom: 12px;
+      }
+
+      /* Labels & inputs for the UI */
+      label {
+        display: inline-block;
+        width: 140px;
+        margin-bottom: 6px;
+        font-size: 13px;
+      }
+      input[type="text"] {
+        width: 240px;
+        height: 26px;
+        padding: 4px 6px;
+        margin-bottom: 6px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        font-size: 13px;
+        line-height: 1.2;
+      }
+
+      /* Buttons */
+      .btn {
+        display: inline-block;
+        padding: 6px 12px;
+        margin: 4px 4px 4px 0;
+        border: none;
+        border-radius: 3px;
+        background-color: #007bff;
+        color: #fff;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .btn:hover {
+        background-color: #0056b3;
+      }
+
+      /*
+      Larger on‑screen preview:
+      ~ 400×256 px keeps roughly the ratio 50:32 (which is ~1.5625).
+      Enough space for text & barcode to fit comfortably.
+    */
+      #labelPreview {
+        width: 400px;
+        height: 256px;
+        border: 1px dashed #aaa;
+        margin-top: 8px;
+        padding: 8px;
+        box-sizing: border-box;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+      .label-item {
+        margin-bottom: 0.5em;
+        font-weight: bold;
+        font-size: 16px; /* bigger text in the on-screen preview */
+      }
+      #barcode {
+        display: block;
+        margin: 0 auto;
+      }
+
+      /*
+      @media print:
+      1) The physical page size is 50mm x 32mm
+         (so we can add a 27mm left margin for centering).
+      2) We place #labelPreview at left: 27mm,
+         with actual label area 50mm wide, 32mm tall.
+      3) Hide everything else.
+      4) Reduce font size a bit so it fits on the real label.
+    */
+      @media print {
+        @page {
+          size: 50mm 32mm;
+          margin: 0;
+        }
+        body * {
+          visibility: hidden; /* hide everything but the preview */
+        }
+        #labelPreview,
+        #labelPreview * {
+          visibility: visible;
+        }
+        #labelPreview {
+          position: absolute;
+          top: 0;
+          left: 27mm; /* shift it 27mm from the left edge */
+          width: 50mm; /* actual label width */
+          height: 32mm; /* label height */
+          margin: 0;
+          border: none;
+          padding: 3mm; /* optional inside padding so text doesn't touch edges */
+          box-sizing: border-box;
+        }
+        .label-item {
+          font-size: 10px; /* smaller font so text fits nicely on 50×32 mm */
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Label Printer App</h1>
+
+    <!-- (1) CSV Import -->
+    <div class="section">
+      <h2>1. Import CSV (optional)</h2>
+      <input type="file" id="csvFileInput" accept=".csv" />
+    </div>
+
+    <!-- (2) Search Section -->
+    <div class="section">
+      <h2>2. Search from CSV</h2>
+
+      <div style="margin-bottom: 6px">
+        <label for="codBarSearch">Cod de bare:</label>
+        <input
+          type="text"
+          id="codBarSearch"
+          placeholder="Scan or type cod de bare..."
+        />
+        <button class="btn" id="btnSearchCodBar">Search</button>
+      </div>
+
+      <div>
+        <label for="skuSearch">SKU-Marime:</label>
+        <input type="text" id="skuSearch" placeholder="Denumire-Cod..." />
+        <button class="btn" id="btnSearchSKU">Search</button>
+      </div>
+    </div>
+
+    <!-- (3) Manual Input Fields -->
+    <div class="section">
+      <h2>3. Build / Edit Label Data</h2>
+
+      <label for="codBareInput">Cod bare:</label>
+      <input type="text" id="codBareInput" placeholder="Cod bare" />
+      <br />
+
+      <label for="skuMarimeInput">SKU-Marime:</label>
+      <input type="text" id="skuMarimeInput" placeholder="SKU-Marime" />
+      <br />
+
+      <label for="descriereInput">Descriere:</label>
+      <input type="text" id="descriereInput" placeholder="Descriere" />
+      <br />
+
+      <label for="pretCatalogInput">Pret catalog:</label>
+      <input type="text" id="pretCatalogInput" placeholder="Pret catalog" />
+      <br />
+
+      <label for="pretRedusInput">Pret redus:</label>
+      <input
+        type="text"
+        id="pretRedusInput"
+        placeholder="Pret Online / Redus"
+      />
+    </div>
+
+    <!-- (4) Label Preview & Print -->
+    <div class="section">
+      <h2>4. Label Preview &amp; Print</h2>
+
+      <button class="btn" id="btnUpdatePreview">Update Preview</button>
+      <button class="btn" onclick="window.print()">Print Label</button>
+
+      <div id="labelPreview">
+        <!-- We do NOT show 'Cod bare' text; just the barcode below -->
+        <div class="label-item" id="lblSkuMarime"></div>
+        <div class="label-item" id="lblDescriere"></div>
+        <div class="label-item" id="lblPretCatalog"></div>
+        <div class="label-item" id="lblPretRedus"></div>
+        <svg id="barcode"></svg>
+      </div>
+    </div>
+
+    <!-- Include JsBarcode -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+
+    <script>
+      let csvData = [];
+
+      // Convert "4.06798E+12" => "4067981507085" if needed
+      function fixScientificNotation(value) {
+        if (typeof value !== "string") return value;
+        if (/[eE]/.test(value)) {
+          const asNum = Number(value);
+          if (!Number.isNaN(asNum)) {
+            return asNum.toFixed(0);
+          }
+        }
+        return value;
+      }
+
+      // (1) CSV Parsing
+      document
+        .getElementById("csvFileInput")
+        .addEventListener("change", (evt) => {
+          const file = evt.target.files[0];
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            csvData = parseCSV(e.target.result);
+            alert("CSV Loaded Successfully!\nRows: " + csvData.length);
+          };
+          reader.readAsText(file, "UTF-8");
+        });
+
+      function parseCSV(text) {
+        // If your CSV is semicolon or tab delimited, adapt the code below.
+        const lines = text.split(/\r?\n/).filter(Boolean);
+        const headers = lines[0].split(",").map((h) => h.trim());
+
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+          const cells = lines[i].split(",").map((c) => c.trim());
+          if (!cells.length) continue;
+
+          const rowObj = {};
+          headers.forEach((header, idx) => {
+            let val = cells[idx] || "";
+            if (header === "Cod bare" || header === "cod bare") {
+              val = fixScientificNotation(val);
+            }
+            rowObj[header] = val;
+          });
+          rows.push(rowObj);
+        }
+        return rows;
+      }
+
+      // (2) Searching
+      document
+        .getElementById("btnSearchCodBar")
+        .addEventListener("click", searchByCodBare);
+      document
+        .getElementById("btnSearchSKU")
+        .addEventListener("click", searchBySKU);
+
+      // Press Enter in search fields
+      document
+        .getElementById("codBarSearch")
+        .addEventListener("keypress", function (e) {
+          if (e.key === "Enter") searchByCodBare();
+        });
+      document
+        .getElementById("skuSearch")
+        .addEventListener("keypress", function (e) {
+          if (e.key === "Enter") searchBySKU();
+        });
+
+      function searchByCodBare() {
+        const codBar = document.getElementById("codBarSearch").value.trim();
+        if (!codBar) {
+          alert("Please enter Cod de bare to search");
+          return;
+        }
+        if (csvData.length === 0) {
+          alert(
+            "No CSV data loaded yet. (You can still fill fields manually.)"
+          );
+          return;
+        }
+        // Check either 'Cod bare' or 'cod bare'
+        const found = csvData.find((row) => {
+          const val1 = (row["Cod bare"] || "").trim();
+          const val2 = (row["cod bare"] || "").trim();
+          return val1 === codBar || val2 === codBar;
+        });
+        if (found) {
+          fillInputs(found);
+        } else {
+          alert("No matching row found for Cod bare = " + codBar);
+        }
+      }
+
+      function searchBySKU() {
+        const sku = document.getElementById("skuSearch").value.trim();
+        if (!sku) {
+          alert("Please enter SKU-Marime to search");
+          return;
+        }
+        if (csvData.length === 0) {
+          alert(
+            "No CSV data loaded yet. (You can still fill fields manually.)"
+          );
+          return;
+        }
+        // Typically "Denumire" + "-" + "Cod"
+        const found = csvData.find((row) => {
+          const denumire = row["Denumire"] || "";
+          const cod = row["Cod"] || "";
+          return (denumire + "-" + cod).trim() === sku;
+        });
+        if (found) {
+          fillInputs(found);
+        } else {
+          alert("No matching row found for SKU-Marime = " + sku);
+        }
+      }
+
+      // (3) Populate the manual input fields
+      function fillInputs(data) {
+        const codB = data["Cod bare"] || data["cod bare"] || "";
+        document.getElementById("codBareInput").value = codB;
+
+        const denumire = data["Denumire"] || "";
+        const c = data["Cod"] || "";
+        document.getElementById("skuMarimeInput").value = (
+          denumire +
+          "-" +
+          c
+        ).trim();
+
+        document.getElementById("descriereInput").value =
+          data["Descriere"] || "";
+        document.getElementById("pretCatalogInput").value =
+          data["Pret catalog"] || "";
+        document.getElementById("pretRedusInput").value =
+          data["Pret Online"] || "";
+      }
+
+      // (4) Update Label Preview & generate barcode
+      document
+        .getElementById("btnUpdatePreview")
+        .addEventListener("click", function () {
+          const codBare = document.getElementById("codBareInput").value.trim();
+          const sku = document.getElementById("skuMarimeInput").value.trim();
+          const desc = document.getElementById("descriereInput").value.trim();
+          const cat = document.getElementById("pretCatalogInput").value.trim();
+          const redus = document.getElementById("pretRedusInput").value.trim();
+
+          // Show text in preview
+          document.getElementById("lblSkuMarime").textContent = sku
+            ? "SKU-Marime: " + sku
+            : "";
+          document.getElementById("lblDescriere").textContent = desc
+            ? "Descriere: " + desc
+            : "";
+          document.getElementById("lblPretCatalog").textContent = cat
+            ? "Pret catalog: " + cat
+            : "";
+
+          // Pret redus condition
+          const lblRedus = document.getElementById("lblPretRedus");
+          if (redus) {
+            lblRedus.style.display = "block";
+            lblRedus.textContent = "Pret redus: " + redus;
+          } else {
+            lblRedus.style.display = "none";
+            lblRedus.textContent = "";
+          }
+
+          // Generate barcode if we have codBare
+          const barcodeSvg = document.getElementById("barcode");
+          barcodeSvg.innerHTML = "";
+          if (codBare) {
+            try {
+              JsBarcode(barcodeSvg, codBare, {
+                format: "CODE128",
+                lineColor: "#000",
+                width: 1, // bar width for on-screen
+                height: 50, // taller bars in the 400×256 preview
+                displayValue: false,
+              });
+            } catch (err) {
+              alert("Error generating barcode: " + err.message);
+            }
+          }
+        });
+    </script>
+  </body>
+</html>
