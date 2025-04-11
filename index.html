@@ -559,14 +559,14 @@
             ? "Descriere: " + desc
             : "";
           document.getElementById("lblPretCatalog").textContent = cat
-            ? "Pret catalog: " + cat
+            ? "Pret catalog: " + cat + " lei"
             : "";
 
           // Pret redus condition
           const lblRedus = document.getElementById("lblPretRedus");
           if (redus) {
             lblRedus.style.display = "block";
-            lblRedus.textContent = "Pret redus: " + redus;
+            lblRedus.textContent = "Pret redus: " + redus + " lei";
           } else {
             lblRedus.style.display = "none";
             lblRedus.textContent = "";
